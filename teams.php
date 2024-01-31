@@ -16,63 +16,47 @@ class TeamsPlugin extends Plugin {
      * The entrypoint of the plugin, keep short, always runs.
      */
     function bootstrap() {
-        // Listen for osTicket to tell us it's made a new ticket or updated
-        // an existing ticket:
-        Signal::connect('ticket.created', array($this, 'onTicketCreated'));
-        Signal::connect('threadentry.created', array($this, 'onTicketUpdated'));
-        // Tasks? Signal::connect('task.created',array($this,'onTaskCreated'));
-    }
+        $config = $this->getConfig();
 
+        Signal::connect('ticket.created', function(Ticket $ticket) use ($config) {
+            global $cfg;
+            if (!$cfg instanceof OsticketConfig) {
+                error_log("Teams plugin called too early.");
+                return;
+            }
 
-    /**
-     * @global $cfg
-     * @param Ticket $ticket
-     * @throws Exception
-     */
-    function onTicketCreated(Ticket $ticket) {
-        global $cfg;
-        if (!$cfg instanceof OsticketConfig) {
-            error_log("Teams plugin called too early.");
-            return;
-        }
+            $type = $ticket->getNumber() . ' created: ';
+            TeamsPlugin::sendToTeams($ticket, $type, 'good', $config);
+        });
 
-        $type = $ticket->getNumber() . ' created: ';
-        $this->sendToTeams($ticket, $type);
-    }
+        Signal::connect('threadentry.created', function(ThreadEntry $entry) use ($config) {
+            global $cfg;
+            if (!$cfg instanceof OsticketConfig) {
+                error_log("Teams plugin called too early.");
+                return;
+            }
 
-    /**
-     * What to do with an Updated Ticket?
-     *
-     * @global OsticketConfig $cfg
-     * @param ThreadEntry $entry
-     * @return type
-     */
-    function onTicketUpdated(ThreadEntry $entry) {
-        global $cfg;
-        if (!$cfg instanceof OsticketConfig) {
-            error_log("Teams plugin called too early.");
-            return;
-        }
-        if (!$entry instanceof MessageThreadEntry) {
-            // this was a reply or a system entry.. not a message from a user
-            return;
-        }
+            if (!$entry instanceof MessageThreadEntry) {
+                // this was a reply or a system entry, not a message from a user
+                return;
+            }
 
-        // Need to fetch the ticket from the ThreadEntry
-        $ticket = $this->getTicket($entry);
-        if (!$ticket instanceof Ticket) {
-            // Admin created ticket's won't work here.
-            return;
-        }
+            // fetch the ticket from the ThreadEntry
+            $ticket = TeamsPlugin::getTicket($entry);
 
-        // Check to make sure this entry isn't the first (ie: a New ticket)
-        $first_entry = $ticket->getMessages()[0];
-        if ($entry->getId() == $first_entry->getId()) {
-            return;
-        }
+            if (!$ticket instanceof Ticket) {
+                return;
+            }
 
-        $type = $ticket->getNumber() . ' updated: ';
-        $this->sendToTeams($ticket, $type, 'warning');
+            // make sure this entry isn't the first (i.e., a new ticket)
+            $first_entry = $ticket->getMessages()[0];
+            if ($entry->getId() == $first_entry->getId()) {
+                return;
+            }
+
+            $type = $ticket->getNumber() . ' updated: ';
+            TeamsPlugin::sendToTeams($ticket, $type, 'warning', $config);
+        });
     }
 
     /**
@@ -85,19 +69,19 @@ class TeamsPlugin extends Plugin {
      * @param string $colour
      * @throws \Exception
      */
-    function sendToTeams(Ticket $ticket, $type, $colour = 'good') {
+    static function sendToTeams(Ticket $ticket, $type, $colour = 'good', $config) {
         global $ost, $cfg;
         if (!$ost instanceof osTicket || !$cfg instanceof OsticketConfig) {
             error_log("Teams plugin called too early.");
             return;
         }
-        $url = $this->getConfig()->get('teams-webhook-url');
+        $url = $config->get('teams-webhook-url');
         if (!$url) {
             $ost->logError('Teams Plugin not configured', 'You need to read the Readme and configure a webhook URL before using this.');
         }
 
         // Check the subject, see if we want to filter it.
-        $regex_subject_ignore = $this->getConfig()->get('teams-regex-subject-ignore');
+        $regex_subject_ignore = $config->get('teams-regex-subject-ignore');
         // Filter on subject, and validate regex:
         if ($regex_subject_ignore && preg_match("/$regex_subject_ignore/i", $ticket->getSubject())) {
             $ost->logDebug('Ignored Message', 'Teams notification was not sent because the subject (' . $ticket->getSubject() . ') matched regex (' . htmlspecialchars($regex_subject_ignore) . ').');
@@ -105,7 +89,7 @@ class TeamsPlugin extends Plugin {
         }
 
         // Build the payload with the formatted data:
-        $payload = $this->createJsonMessage($ticket, $type);
+        $payload = TeamsPlugin::createJsonMessage($ticket, $config->get('teams-message-display'), $type);
 
         try {
             // Setup curl
@@ -144,7 +128,7 @@ class TeamsPlugin extends Plugin {
      * @param ThreadEntry $entry
      * @return Ticket
      */
-    function getTicket(ThreadEntry $entry) {
+    static function getTicket(ThreadEntry $entry) {
         $ticket_id = Thread::objects()->filter([
             'id' => $entry->getThreadId()
         ])->values_flat('object_id')->first() [0];
@@ -164,7 +148,7 @@ class TeamsPlugin extends Plugin {
      * @param string $text
      * @return string
      */
-    function format_text($text) {
+    static function format_text($text) {
         $formatter      = [
             '<' => '&lt;',
             '>' => '&gt;',
@@ -192,7 +176,7 @@ class TeamsPlugin extends Plugin {
      * @return String containing either just a URL or a complete image tag
      * @source https://gravatar.com/site/implement/images/php/
      */
-    function get_gravatar($email, $s = 80, $d = 'mm', $r = 'g', $img = false, $atts = array()) {
+    static function get_gravatar($email, $s = 80, $d = 'mm', $r = 'g', $img = false, $atts = array()) {
         $url = 'https://www.gravatar.com/avatar/';
         $url .= md5(strtolower(trim($email)));
         $url .= "?s=$s&d=$d&r=$r";
@@ -211,7 +195,7 @@ class TeamsPlugin extends Plugin {
      * @param null $type
      * @return false|string
      */
-    private function createJsonMessage($ticket, $type = null, $color = 'AFAFAF')
+    static function createJsonMessage($ticket, $messageDisplay, $type = null, $color = 'AFAFAF')
     {
         global $cfg;
         if ($ticket->isOverdue()) {
@@ -223,12 +207,12 @@ class TeamsPlugin extends Plugin {
             '@context' => 'https://schema.org/extensions',
             'summary' => 'Ticket: ' . $ticket->getNumber(),
             'themeColor' => $color,
-            'title' => $this->format_text($type . $ticket->getSubject()),
+            'title' => TeamsPlugin::format_text($type . $ticket->getSubject()),
             'sections' => [
                 [
                     'activityTitle' => ($ticket->getName() ? $ticket->getName() : 'Guest ') . ' (sent by ' . $ticket->getEmail() . ')',
-                    'activitySubtitle' => $ticket->getUpdateDate(),
-                    'activityImage' => $this->get_gravatar($ticket->getEmail()),
+                    'activitySubtitle' => is_string($ticket->getUpdateDate()) ? $ticket->getUpdateDate() : $ticket->getCreateDate(),
+                    'activityImage' => TeamsPlugin::get_gravatar($ticket->getEmail()),
                 ],
             ],
             'potentialAction' => [
@@ -244,7 +228,7 @@ class TeamsPlugin extends Plugin {
                 ]
             ]
         ];
-        if($this->getConfig()->get('teams-message-display')) {
+        if($messageDisplay) {
             array_push($message['sections'], ['text' => trim(substr($ticket->getLastMessage()->getBody()->getClean(), 0, 300)) . '...']);
         }
 
