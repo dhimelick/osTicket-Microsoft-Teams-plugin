@@ -20,7 +20,7 @@ class TeamsPluginConfig extends PluginConfig {
         return Plugin::translate('teams');
     }
 
-    function pre_save($config, &$errors) {
+    function pre_save(&$config, &$errors) {
         if ($config['teams-regex-subject-ignore'] && false === @preg_match("/{$config['teams-regex-subject-ignore']}/i", null)) {
             $errors['err'] = 'Your regex was invalid, try something like "spam", it will become: "/spam/i" when we use it.';
             return FALSE;
@@ -33,18 +33,18 @@ class TeamsPluginConfig extends PluginConfig {
 
         return array(
             'teams'                      => new SectionBreakField(array(
-                'label' => $__('Teams notifier'),
-                'hint'  => $__('Readme first: https://github.com/ipavlovi/osTicket-Microsoft-Teams-plugin')
+                'label' => $__('Microsoft Teams Notifications'),
+                'hint'  => $__('Readme first: https://github.com/dhimelick/osTicket-Microsoft-Teams-plugin')
             )),
             'teams-webhook-url'          => new TextboxField(array(
-                'label'         => $__('Webhook URL'),
+                'label'         => $__('Teams Incoming Webhook URL'),
                 'configuration' => array(
                     'size'   => 100,
                     'length' => 700
                 ),
             )),
             'teams-regex-subject-ignore' => new TextboxField([
-                'label'         => $__('Ignore when subject equals regex'),
+                'label'         => $__('Ignore subject based on regex'),
                 'hint'          => $__('Auto delimited, always case-insensitive'),
                 'configuration' => [
                     'size'   => 30,
@@ -52,9 +52,9 @@ class TeamsPluginConfig extends PluginConfig {
                 ],
             ]),
             'teams-message-display' => new BooleanField([
-                'label' => $__('Display ticket message body in notification.'),
-                'hint' => $__('Uncheck to hide messages.'),
-                'default' => TRUE
+                'label' => $__('Display ticket message body in notification'),
+                'hint' => $__('Check to show messages.'),
+                'default' => FALSE
             ])
         );
     }
