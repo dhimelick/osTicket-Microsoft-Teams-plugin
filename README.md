@@ -1,42 +1,43 @@
-# osTicket-microsoft-teams
+# Microsoft Teams Plugin for osTicket
 
-An plugin for [osTicket](https://osticket.com) which posts notifications to a [Microsoft Teams](https://products.office.com/en-us/microsoft-teams/group-chat-software) channel.
+A plugin for [osTicket](https://osticket.com) which posts notifications to a [Microsoft Teams](https://products.office.com/en-us/microsoft-teams/group-chat-software) channel.
 
-Forked from [https://github.com/ipavlovi/osTicket-Microsoft-Teams-plugin](https://github.com/ipavlovi/osTicket-Microsoft-Teams-plugin) which was originally forked from [https://github.com/clonemeagain/osticket-slack](https://github.com/clonemeagain/osticket-slack).
+Forked from [https://github.com/Data-Tech-International/osTicket-Microsoft-Teams-plugin](https://github.com/Data-Tech-International/osTicket-Microsoft-Teams-plugin) which was originally forked from [https://github.com/clonemeagain/osticket-slack](https://github.com/clonemeagain/osticket-slack).
 
-## Info
-
-This plugin uses CURL and was designed/tested with osTicket 1.14 and 1.15.
+This plugin has been updated to work with osTicket 1.18 on PHP 8.1+.
 
 ## Requirements
 
 - php_curl
-- An Office 365 account
+- An Office 365 account for Teams
 
-## Install
+## Microsoft Teams Setup
+
+**Important Note**: As of 2024-02-01, you _must_ use the "old" Teams to manage Connections including incoming webhooks. Once configured, you can use the "new" Teams and will continue to receive osTicket notifications.
+
+1. In Teams, click **...** for the channel you'd like to receive notifications and select **Connectors**.
+2. Search for "incoming webhook" and click **Add**.
+3. Enter a webhook name (which will be the chat "user") and optionally a profile image. Click **Create**.
+4. Copy the generated URL for use in step 7 below.
+
+The channel you select will receive a notification similar to this:
+
+```
+David Himelick has set up a connection to Incoming Webhook so group members will be notified for this configuration with name osTicket
+```
+
+## Plugin Installation
 
 1. Clone this repo or download the zip file and place the contents into your `include/plugins` folder.
-2. Now the plugin needs to be enabled & configured, so login to osTicket, select "Admin Panel" then "Manage -> Plugins" you should be seeing the list of currently installed plugins.
-3. Click on `MS Teams Notifier` and paste your Teams Endpoint URL into the box (MS Teams setup instructions below).
-4. Click `Save Changes`! (If you get an error about curl, you will need to install the Curl module for PHP).
-5. After that, go back to the list of plugins and tick the checkbox next to "MS Teams Notifier" and select the "Enable" button.
+2. Login to osTicket.
+3. Go to **Admin Panel** then **Manage > Plugins**.
+4. Click **Add New Plugin** and click **Install** for "Microsoft Teams Notifications".
+5. Go to the **Instances** tab and click **Add New Instance**.
+6. On the **Instance** tab, give the instance a descriptive name and change the status to **Enabled**.
+7. On the Config tab, enter the incoming webhook URL obtained from Teams using the steps above and click **Add Instance**.
+8. Navigate back to **Manage > Plugins**.
+9. Check the box next to Microsoft Teams Notifications then select **More > Enable**.
 
-## MS Teams Setup:
+## Test
 
-- Open MS Teams, navigate to channel and open Connectors from elipsoids (...) menu
-- Select Incoming Webhook and configure
-- Choose webhook name and optionally change associated image
-- Click Create
-- Scroll down and copy the Webhook URL entirely, paste this into the `osTicket -> Admin -> Plugin -> Teams` config admin screen.
-
-The channel you select will receive an event notice, like:
-
-```
-Ivan Pavlovic has set up a connection to Incoming Webhook so group members will be notified for this configuration with name osTicket
-```
-
-## Test!
-
-Create a ticket!
-
-Notes, Replies from Agents and System messages shouldn't appear.
+Create a ticket. Submit an update to that ticket as a user. Internal notes, replies from agents, and system messages shouldn't appear.
