@@ -2,7 +2,7 @@
 
 return array(
     'id'          => 'osticket:teams',
-    'version'     => '1.1',
+    'version'     => '1.2.0',
     'name'        => 'Microsoft Teams Notifications',
     'author'      => 'Ivan Pavlović, David Himelick',
     'description' => 'Send Teams notifications for incoming messages.',
