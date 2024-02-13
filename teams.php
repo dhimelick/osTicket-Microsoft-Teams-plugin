@@ -63,6 +63,14 @@ class TeamsBackend {
             return;
         }
 
+        // verify this is a ticket thread, not a task thread
+        $threadType = Thread::objects()->filter([
+            'id' => $entry->getThreadId()
+        ])->values_flat('object_type')->first() [0];
+        if ($threadType != "T") {
+            return;
+        }
+
         $ticket = TeamsBackend::getTicket($entry);
         if (!$ticket instanceof Ticket) {
             return;
